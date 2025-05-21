@@ -13,6 +13,8 @@ import { aiPoweredDataIntegration, type DataIntegrationInput } from '@/ai/flows/
 import { fileToDataUri } from '@/lib/utils';
 import { Loader2, Sparkles, FileText, FileType2, Languages, Download, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
+import mammoth from 'mammoth';
+import pdfjs from 'pdfjs-dist';
 
 export default function LinguaLeapPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -30,13 +32,13 @@ export default function LinguaLeapPage() {
     if (isLoading) {
       const interval = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 95) { // Simulate near completion before actual result
+          if (prev >= 95) {
             clearInterval(interval);
             return 95;
           }
           return prev + 5;
         });
-      }, 300); // Adjust speed of progress bar
+      }, 300);
       return () => clearInterval(interval);
     } else {
       setProgress(0);
@@ -57,36 +59,44 @@ export default function LinguaLeapPage() {
     setIsLoading(true);
     setError(null);
     setPopulatedDocumentDataUri(null);
-    setProgress(5); // Initial progress
+    setProgress(5);
 
     try {
-      setCurrentProgressStep("Converting PDF to data URI...");
-      const pdfDataUri = await fileToDataUri(pdfFile);
-      setProgress(25);
+      setCurrentProgressStep("Extracting PDF content...");
+      const pdfData = await pdfFile.arrayBuffer();
+      const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+      const page = await pdf.getPage(1);
+      const textContent = await page.getTextContent();
+      const pdfText = textContent.items.map((item: any) => item.str).join(' ');
+      setProgress(30);
 
-      setCurrentProgressStep("Converting template to data URI...");
-      const templateDataUri = await fileToDataUri(templateFile);
-      setProgress(45);
+      setCurrentProgressStep("Processing template...");
+      const templateData = await templateFile.arrayBuffer();
+      const { value: templateText } = await mammoth.extractRawText({ arrayBuffer: templateData });
+      setProgress(50);
 
       const input: DataIntegrationInput = {
-        pdfDataUri,
-        templateDataUri,
+        pdfText,
+        templateText,
         targetLanguage,
       };
 
-      setCurrentProgressStep("AI processing document...");
+      setCurrentProgressStep("AI processing content...");
       toast({
         title: "Processing Document...",
         description: "LinguaLeap's AI is diligently working. This may take a moment.",
       });
       
-      setProgress(65);
+      setProgress(70);
       const result = await aiPoweredDataIntegration(input);
       setProgress(90);
 
-      if (result.populatedDocumentDataUri) {
-        setPopulatedDocumentDataUri(result.populatedDocumentDataUri);
+      if (result.translatedContent) {
+        const blob = new Blob([result.translatedContent], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const dataUri = await fileToDataUri(new File([blob], 'translated.docx'));
+        setPopulatedDocumentDataUri(dataUri);
         setProgress(100);
+        
         toast({
           variant: "default",
           title: "Success! Document Ready",
@@ -94,7 +104,7 @@ export default function LinguaLeapPage() {
           className: "bg-green-600 text-white border-green-700",
         });
       } else {
-        throw new Error("AI processing did not return a document URI. The result might be empty or invalid.");
+        throw new Error("AI processing did not return valid content.");
       }
     } catch (err) {
       console.error("Processing error:", err);
@@ -105,7 +115,7 @@ export default function LinguaLeapPage() {
         title: "Processing Failed",
         description: errorMessage,
       });
-      setProgress(0); // Reset progress on error
+      setProgress(0);
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +152,7 @@ export default function LinguaLeapPage() {
             acceptedFileTypes=".pdf,application/pdf"
             icon={<FileText className="w-7 h-7" />}
             onFileChange={setPdfFile}
-            maxFileSizeMB={5} // Example: limit PDF size
+            maxFileSizeMB={5}
           />
 
           <FileUploadZone
@@ -152,7 +162,7 @@ export default function LinguaLeapPage() {
             acceptedFileTypes=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             icon={<FileType2 className="w-7 h-7" />}
             onFileChange={setTemplateFile}
-            maxFileSizeMB={2} // Example: limit Word template size
+            maxFileSizeMB={2}
           />
 
           <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
@@ -206,7 +216,7 @@ export default function LinguaLeapPage() {
             LinguaLeap It!
           </Button>
 
-          {error && !isLoading && ( // Only show error if not loading, to prevent overlap with progress bar
+          {error && !isLoading && (
             <Alert variant="destructive" className="shadow-md animate-in fade-in duration-300">
               <AlertTriangle className="h-5 w-5" />
               <AlertTitle className="font-semibold">Oops! Something went wrong.</AlertTitle>

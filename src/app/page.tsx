@@ -14,7 +14,9 @@ import { fileToDataUri } from '@/lib/utils';
 import { Loader2, Sparkles, FileText, FileType2, Languages, Download, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import mammoth from 'mammoth';
-import pdfjs from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function LinguaLeapPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -64,7 +66,7 @@ export default function LinguaLeapPage() {
     try {
       setCurrentProgressStep("Extracting PDF content...");
       const pdfData = await pdfFile.arrayBuffer();
-      const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+      const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
       const page = await pdf.getPage(1);
       const textContent = await page.getTextContent();
       const pdfText = textContent.items.map((item: any) => item.str).join(' ');

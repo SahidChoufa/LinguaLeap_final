@@ -9,12 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { aiPoweredDataIntegration, type DataIntegrationInput } from '@/ai/flows/ai-powered-data-integration';
 import { fileToDataUri } from '@/lib/utils';
 import { Loader2, Sparkles, FileText, FileType2, Languages, Download, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
 import mammoth from 'mammoth';
-import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
@@ -77,12 +76,6 @@ export default function LinguaLeapPage() {
       const { value: templateText } = await mammoth.extractRawText({ arrayBuffer: templateData });
       setProgress(50);
 
-      const input: DataIntegrationInput = {
-        pdfText,
-        templateText,
-        targetLanguage,
-      };
-
       setCurrentProgressStep("AI processing content...");
       toast({
         title: "Processing Document...",
@@ -90,7 +83,24 @@ export default function LinguaLeapPage() {
       });
       
       setProgress(70);
-      const result = await aiPoweredDataIntegration(input);
+      
+      const response = await fetch('/api/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pdfText,
+          templateText,
+          targetLanguage,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process documents');
+      }
+
+      const result = await response.json();
       setProgress(90);
 
       if (result.translatedContent) {

@@ -27,24 +27,29 @@ const dataIntegrationPrompt = ai.definePrompt({
   name: 'dataIntegrationPrompt',
   input: {schema: DataIntegrationInputSchema},
   output: {schema: DataIntegrationOutputSchema},
-  prompt: `You are an AI assistant that intelligently translates and populates document content.
+  prompt: `You are an expert translator and document processor. Your task is to:
 
-  Your task is to:
-  1. Analyze the extracted text from the PDF containing names and numbers
-  2. Identify the placeholders in the template text
-  3. Translate and map the extracted data to the correct placeholders
-  4. Ensure the output is coherent and grammatically correct in the target language
+1. Analyze the provided PDF text that contains names and numbers
+2. Look at the template text with its placeholders
+3. Translate the content to {{targetLanguage}} while preserving names and numbers
+4. Map the translated content into the template structure
 
-  PDF Content:
-  {{pdfText}}
+PDF Content to translate:
+{{pdfText}}
 
-  Template Content:
-  {{templateText}}
+Template to populate (maintain its structure):
+{{templateText}}
 
-  Target Language: {{targetLanguage}}
+Target Language: {{targetLanguage}}
 
-  Translate and populate the template with the extracted data, ensuring proper formatting and language adaptation.
-  Return only the final translated and populated content.`,
+Rules:
+- Preserve all names exactly as they appear
+- Keep numbers unchanged
+- Maintain document formatting
+- Ensure natural, fluent translation
+- Keep placeholder positions intact
+
+Return the final translated and populated content that matches the template structure.`,
 });
 
 const aiPoweredDataIntegrationFlow = ai.defineFlow(
@@ -54,7 +59,10 @@ const aiPoweredDataIntegrationFlow = ai.defineFlow(
     outputSchema: DataIntegrationOutputSchema,
   },
   async input => {
-    const {output} = await dataIntegrationPrompt(input);
-    return output!;
+    const result = await dataIntegrationPrompt(input);
+    if (!result.output) {
+      throw new Error('Failed to generate translation');
+    }
+    return result.output;
   }
 );

@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       console.error('Error storing translation:', insertError);
     }
 
+    // Call the AI translation function
     const result = await aiPoweredDataIntegration({
       pdfText,
       templateText,
